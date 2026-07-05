@@ -333,13 +333,13 @@ const MITOSIS_KF = [
            K({x:0.5,y:0.56,a:0,s:1.05,c:2,p:1,xo:0}),K({x:0.5,y:0.64,a:0,s:1.05,c:3,p:1,xo:0})],
     centro:[K({x:0.10,y:0.5,op:1}),K({x:0.90,y:0.5,op:1})], furrow:0 },
   // 3 Anaphase — sisters slide apart via split
-  { pinch:0, sep:0, cellRX:0.20, cellRY:0.22,
+  { pinch:0, sep:0, cellRX:0.32, cellRY:0.22,
     nuc:[K({x:0.5,y:0.5,rx:0.11,ry:0.08,op:0})],
     chrom:[K({x:0.5,y:0.36,a:0,s:0.9,c:0,p:0,xo:0,sp:0.26}),K({x:0.5,y:0.44,a:0,s:0.9,c:1,p:0,xo:0,sp:0.26}),
            K({x:0.5,y:0.56,a:0,s:0.9,c:2,p:0,xo:0,sp:0.26}),K({x:0.5,y:0.64,a:0,s:0.9,c:3,p:0,xo:0,sp:0.26})],
     centro:[K({x:0.08,y:0.5,op:1}),K({x:0.92,y:0.5,op:1})], furrow:0 },
   // 4 Telophase
-  { pinch:0, sep:0, cellRX:0.20, cellRY:0.22,
+  { pinch:0, sep:0, cellRX:0.33, cellRY:0.22,
     nuc:[K({x:0.30,y:0.5,rx:0.09,ry:0.07,op:0.85}),K({x:0.70,y:0.5,rx:0.09,ry:0.07,op:0.85})],
     chrom:[K({x:0.30,y:0.42,a:0,s:0.75,c:0,p:0,xo:0,sp:0}),K({x:0.70,y:0.42,a:0,s:0.75,c:1,p:0,xo:0,sp:0}),
            K({x:0.30,y:0.58,a:0,s:0.75,c:2,p:0,xo:0,sp:0}),K({x:0.70,y:0.58,a:0,s:0.75,c:3,p:0,xo:0,sp:0})],
@@ -375,7 +375,7 @@ const MEIOSIS_KF = [
     chrom:[K({x:0.5,y:0.38,a:0,s:1,c:0,p:1,xo:1}),K({x:0.5,y:0.62,a:0,s:1,c:2,p:1,xo:1})],
     centro:[K({x:0.10,y:0.5,op:1}),K({x:0.90,y:0.5,op:1})], furrow:0, cellCount:1 },
   // 3 Anaphase I
-  { pinch:0, sep:0, cellRX:0.20, cellRY:0.22,
+  { pinch:0, sep:0, cellRX:0.32, cellRY:0.22,
     nuc:[K({x:0.5,y:0.5,rx:0.12,ry:0.09,op:0})],
     chrom:[K({x:0.24,y:0.40,a:0,s:0.95,c:0,p:1,xo:0}),K({x:0.76,y:0.40,a:0,s:0.95,c:1,p:1,xo:0}),
            K({x:0.24,y:0.60,a:0,s:0.95,c:2,p:1,xo:0}),K({x:0.76,y:0.60,a:0,s:0.95,c:3,p:1,xo:0})],
@@ -427,13 +427,43 @@ MITOSIS_KF.forEach(kf => kf.chrom.forEach(c => { if (c.sp === undefined) c.sp = 
 MEIOSIS_KF.forEach(kf => kf.chrom.forEach(c => { if (c.sp === undefined) c.sp = 0; }));
 
 /* ================================================================
+   CHROMATIN & SEEDED RANDOM
+   ================================================================ */
+const CHROMATIN_THREADS = [];
+let chromatinSeed = 777;
+function seededRandom() {
+  let x = Math.sin(chromatinSeed++) * 10000;
+  return x - Math.floor(x);
+}
+// Generate 40 wavy threads inside a unit circle
+for (let i = 0; i < 40; i++) {
+  let r1 = seededRandom() * 0.85;
+  let theta1 = seededRandom() * Math.PI * 2;
+  let x1 = Math.cos(theta1) * r1;
+  let y1 = Math.sin(theta1) * r1;
+
+  let r2 = seededRandom() * 0.85;
+  let theta2 = seededRandom() * Math.PI * 2;
+  let x2 = Math.cos(theta2) * r2;
+  let y2 = Math.sin(theta2) * r2;
+
+  let cx1 = x1 + (seededRandom() - 0.5) * 0.4;
+  let cy1 = y1 + (seededRandom() - 0.5) * 0.4;
+  let cx2 = x2 + (seededRandom() - 0.5) * 0.4;
+  let cy2 = y2 + (seededRandom() - 0.5) * 0.4;
+
+  let colorIdx = Math.floor(seededRandom() * 4);
+  CHROMATIN_THREADS.push({ x1, y1, x2, y2, cx1, cy1, cx2, cy2, colorIdx });
+}
+
+/* ================================================================
    COLORS & STATE
    ================================================================ */
 const CHROM_COLORS = [
-  ['#ff4757','#ff6b81'], // red pair
-  ['#2ed573','#7bed9f'], // green pair
-  ['#ffa502','#ffc048'], // orange pair
-  ['#1e90ff','#70a1ff'], // blue pair
+  ['#e84393', '#fd79a8'], // red/pink pair (textbook rose)
+  ['#00b894', '#55efc4'], // green pair (textbook mint/teal)
+  ['#e67e22', '#f39c12'], // orange/yellow pair (textbook amber)
+  ['#0984e3', '#74b9ff'], // blue pair (textbook royal blue)
 ];
 
 const canvas = document.getElementById('canvas');
@@ -584,24 +614,38 @@ function drawBackground(w, h, t) {
 }
 
 function drawCellBlob(cx, cy, rx, ry, fillHue) {
-  const grad = ctx.createRadialGradient(cx - rx*0.25, cy - ry*0.3, rx*0.05, cx, cy, rx*1.1);
-  grad.addColorStop(0, `hsl(${fillHue}, 95%, 78%)`);
-  grad.addColorStop(0.55, `hsl(${fillHue + 15}, 90%, 62%)`);
-  grad.addColorStop(1, `hsl(${fillHue + 25}, 85%, 48%)`);
-
+  if (rx < 1 || ry < 1) return;
+  // Cytoplasm Gradient (semi-transparent soft textbook colors)
+  const grad = ctx.createRadialGradient(cx, cy, rx * 0.1, cx, cy, rx * 1.15);
+  grad.addColorStop(0, `hsla(${fillHue}, 90%, 94%, 0.82)`);
+  grad.addColorStop(0.65, `hsla(${fillHue + 8}, 85%, 85%, 0.72)`);
+  grad.addColorStop(1, `hsla(${fillHue + 15}, 70%, 75%, 0.60)`);
+  
   ctx.beginPath();
   ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
   ctx.fillStyle = grad;
   ctx.fill();
-  ctx.lineWidth = 5;
-  ctx.strokeStyle = '#fff';
+  
+  // Double membrane (Phospholipid bilayer representation)
+  // Outer membrane leaflet
+  ctx.lineWidth = 3.2;
+  ctx.strokeStyle = '#2c3e50';
   ctx.stroke();
-
-  // cartoon shine
-  ctx.beginPath();
-  ctx.ellipse(cx - rx*0.32, cy - ry*0.35, rx*0.18, ry*0.13, -0.4, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,0.45)';
-  ctx.fill();
+  
+  // White separator spacer
+  ctx.lineWidth = 1.8;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+  
+  // Inner membrane leaflet
+  const irx = Math.max(0, rx - 3.5), iry = Math.max(0, ry - 3.5);
+  if (irx > 0 && iry > 0) {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, irx, iry, 0, 0, Math.PI * 2);
+    ctx.lineWidth = 1.0;
+    ctx.strokeStyle = '#2c3e50';
+    ctx.stroke();
+  }
 }
 
 function drawPinchingCell(w, h, sc) {
@@ -631,45 +675,139 @@ function drawPinchingCell(w, h, sc) {
     return;
   }
 
-  // Animated pinch — two blobs pulling apart with bridge
   const easePinch = easeInOut(pinch);
   const leftX = cx - sep * easePinch;
   const rightX = cx + sep * easePinch;
   const blobRX = baseRX * (0.55 + 0.45 * (1 - easePinch * 0.5));
   const bridge = baseRX * 0.35 * (1 - easePinch);
 
-  drawCellBlob(leftX, cy, blobRX, baseRY * 0.96, hue);
-  drawCellBlob(rightX, cy, blobRX, baseRY * 0.96, hue + 8);
+  // Fill the cell lobes
+  const leftGrad = ctx.createRadialGradient(leftX, cy, blobRX * 0.1, leftX, cy, blobRX * 1.15);
+  leftGrad.addColorStop(0, `hsla(${hue}, 90%, 94%, 0.82)`);
+  leftGrad.addColorStop(0.65, `hsla(${hue + 8}, 85%, 85%, 0.72)`);
+  leftGrad.addColorStop(1, `hsla(${hue + 15}, 70%, 75%, 0.60)`);
 
-  // connecting bridge (membrane between dividing cells)
-  if (bridge > 3) {
+  const rightGrad = ctx.createRadialGradient(rightX, cy, blobRX * 0.1, rightX, cy, blobRX * 1.15);
+  rightGrad.addColorStop(0, `hsla(${hue + 8}, 90%, 94%, 0.82)`);
+  rightGrad.addColorStop(0.65, `hsla(${hue + 16}, 85%, 85%, 0.72)`);
+  rightGrad.addColorStop(1, `hsla(${hue + 23}, 70%, 75%, 0.60)`);
+
+  // Draw fills
+  ctx.beginPath();
+  ctx.ellipse(leftX, cy, blobRX, baseRY * 0.96, 0, 0, Math.PI * 2);
+  ctx.fillStyle = leftGrad;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.ellipse(rightX, cy, blobRX, baseRY * 0.96, 0, 0, Math.PI * 2);
+  ctx.fillStyle = rightGrad;
+  ctx.fill();
+
+  // Draw bridge fill
+  if (bridge > 2) {
     ctx.beginPath();
-    ctx.moveTo(leftX + blobRX * 0.5, cy - baseRY * 0.5);
-    ctx.bezierCurveTo(
-      cx, cy - baseRY * 0.5 - bridge,
-      cx, cy + baseRY * 0.5 + bridge,
-      rightX - blobRX * 0.5, cy + baseRY * 0.5
-    );
-    ctx.bezierCurveTo(
-      cx, cy + baseRY * 0.35,
-      cx, cy - baseRY * 0.35,
-      leftX + blobRX * 0.5, cy - baseRY * 0.5
-    );
-    ctx.fillStyle = `hsla(${hue}, 85%, 65%, 0.85)`;
+    ctx.moveTo(leftX + blobRX * 0.3, cy - baseRY * 0.5);
+    ctx.quadraticCurveTo(cx, cy - bridge * 0.8, rightX - blobRX * 0.3, cy - baseRY * 0.5);
+    ctx.lineTo(rightX - blobRX * 0.3, cy + baseRY * 0.5);
+    ctx.quadraticCurveTo(cx, cy + bridge * 0.8, leftX + blobRX * 0.3, cy + baseRY * 0.5);
+    ctx.closePath();
+    ctx.fillStyle = `hsla(${hue}, 85%, 82%, 0.75)`;
     ctx.fill();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#fff';
+  }
+
+  // Draw cell lobes outlines (outer leaflets only)
+  ctx.lineWidth = 3.2;
+  ctx.strokeStyle = '#2c3e50';
+  
+  ctx.beginPath();
+  ctx.ellipse(leftX, cy, blobRX, baseRY * 0.96, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.ellipse(rightX, cy, blobRX, baseRY * 0.96, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Draw cell lobes white inner leaflet spacers
+  ctx.lineWidth = 1.8;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(leftX, cy, blobRX, baseRY * 0.96, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Draw cell lobes inner leaflets
+  const ilRX = Math.max(0, blobRX - 3.5), ilRY = Math.max(0, baseRY * 0.96 - 3.5);
+  if (ilRX > 0 && ilRY > 0) {
+    ctx.lineWidth = 1.0;
+    ctx.strokeStyle = '#2c3e50';
+    ctx.beginPath();
+    ctx.ellipse(leftX, cy, ilRX, ilRY, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(rightX, cy, ilRX, ilRY, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
 
-  // cleavage furrow
+  // Cover internal lines with bridge fill and draw bridge outlines
+  if (bridge > 2) {
+    // Redraw bridge fill on top of cell outlines to hide internal segments
+    ctx.beginPath();
+    ctx.moveTo(leftX + blobRX * 0.28, cy - baseRY * 0.45);
+    ctx.quadraticCurveTo(cx, cy - bridge * 0.8, rightX - blobRX * 0.28, cy - baseRY * 0.45);
+    ctx.lineTo(rightX - blobRX * 0.28, cy + baseRY * 0.45);
+    ctx.quadraticCurveTo(cx, cy + bridge * 0.8, leftX + blobRX * 0.28, cy + baseRY * 0.45);
+    ctx.closePath();
+    ctx.fillStyle = `hsla(${hue}, 85%, 82%, 1.0)`;
+    ctx.fill();
+
+    // Draw bridge top and bottom outlines
+    // Top outer border
+    ctx.lineWidth = 3.2;
+    ctx.strokeStyle = '#2c3e50';
+    ctx.beginPath();
+    ctx.moveTo(leftX + blobRX * 0.28, cy - baseRY * 0.48);
+    ctx.quadraticCurveTo(cx, cy - bridge * 0.8, rightX - blobRX * 0.28, cy - baseRY * 0.48);
+    ctx.stroke();
+    // Top white spacer
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+    // Top inner border
+    ctx.lineWidth = 1.0;
+    ctx.strokeStyle = '#2c3e50';
+    ctx.beginPath();
+    ctx.moveTo(leftX + blobRX * 0.28, cy - baseRY * 0.48 + 3.5);
+    ctx.quadraticCurveTo(cx, cy - bridge * 0.8 + 3.5, rightX - blobRX * 0.28, cy - baseRY * 0.48 + 3.5);
+    ctx.stroke();
+
+    // Bottom outer border
+    ctx.lineWidth = 3.2;
+    ctx.strokeStyle = '#2c3e50';
+    ctx.beginPath();
+    ctx.moveTo(leftX + blobRX * 0.28, cy + baseRY * 0.48);
+    ctx.quadraticCurveTo(cx, cy + bridge * 0.8, rightX - blobRX * 0.28, cy + baseRY * 0.48);
+    ctx.stroke();
+    // Bottom white spacer
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+    // Bottom inner border
+    ctx.lineWidth = 1.0;
+    ctx.strokeStyle = '#2c3e50';
+    ctx.beginPath();
+    ctx.moveTo(leftX + blobRX * 0.28, cy + baseRY * 0.48 - 3.5);
+    ctx.quadraticCurveTo(cx, cy + bridge * 0.8 - 3.5, rightX - blobRX * 0.28, cy + baseRY * 0.48 - 3.5);
+    ctx.stroke();
+  }
+
+  // cleavage furrow line (microfilaments)
   if (sc.furrow > 0.01) {
     const depth = sc.furrow * baseRY * 0.55;
     ctx.beginPath();
-    ctx.moveTo(cx - blobRX * 0.4, cy);
-    ctx.quadraticCurveTo(cx, cy + depth, cx + blobRX * 0.4, cy);
-    ctx.lineWidth = 4 + sc.furrow * 3;
-    ctx.strokeStyle = `hsl(${hue + 40}, 90%, 55%)`;
+    ctx.moveTo(cx - blobRX * 0.35, cy);
+    ctx.quadraticCurveTo(cx, cy + depth, cx + blobRX * 0.35, cy);
+    ctx.lineWidth = 3 + sc.furrow * 2;
+    ctx.strokeStyle = '#e84393';
     ctx.lineCap = 'round';
     ctx.stroke();
   }
@@ -693,41 +831,136 @@ function drawNucleus(w, h, n) {
   if (n.op < 0.02) return;
   const cx = n.x * w, cy = n.y * h;
   const rx = n.rx * w, ry = n.ry * h;
+  if (rx < 1 || ry < 1) return;
   ctx.globalAlpha = n.op;
-  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
-  g.addColorStop(0, 'rgba(200, 160, 255, 0.7)');
-  g.addColorStop(1, 'rgba(130, 80, 220, 0.35)');
+  
+  // Fill nucleus with soft transparent violet/blue
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(1, rx));
+  g.addColorStop(0, 'rgba(235, 220, 255, 0.65)');
+  g.addColorStop(1, 'rgba(190, 160, 240, 0.45)');
   ctx.beginPath();
   ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
   ctx.fillStyle = g;
   ctx.fill();
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  
+  // Draw chromatin threads during Interphase -> Prophase transition
+  let chromatinOp = 0;
+  if (step === 0) {
+    chromatinOp = transitioning ? animT : 1;
+  } else if (step === 1) {
+    chromatinOp = transitioning ? 1 - animT : 0;
+  }
+  const finalChromatinOp = n.op * chromatinOp;
+  if (finalChromatinOp > 0.02 && rx > 5) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.clip();
+    
+    ctx.globalAlpha = finalChromatinOp * 0.7;
+    CHROMATIN_THREADS.forEach(t => {
+      const color = CHROM_COLORS[t.colorIdx][0];
+      ctx.beginPath();
+      ctx.moveTo(cx + t.x1 * rx, cy + t.y1 * ry);
+      ctx.bezierCurveTo(
+        cx + t.cx1 * rx, cy + t.cy1 * ry,
+        cx + t.cx2 * rx, cy + t.cy2 * ry,
+        cx + t.x2 * rx, cy + t.y2 * ry
+      );
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+  
+  // Reset globalAlpha for nuclear envelope borders so they match n.op
+  ctx.globalAlpha = n.op;
+  
+  // Draw outer envelope (dashed for nuclear pores)
+  ctx.lineWidth = 1.8;
+  ctx.strokeStyle = '#2c3e50';
+  ctx.setLineDash([7, 4]);
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
   ctx.stroke();
+  
+  // Draw inner envelope (solid/fine)
+  ctx.setLineDash([]);
+  const irx = Math.max(0, rx - 3.5), iry = Math.max(0, ry - 2.5);
+  if (irx > 0 && iry > 0) {
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, irx, iry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  
   ctx.globalAlpha = 1;
+}
+
+function drawCentrioleCylinder(x, y, angle, length, radius, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  
+  // Cylinder barrel body
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#2c3e50';
+  ctx.lineWidth = 1.5;
+  
+  ctx.beginPath();
+  ctx.moveTo(0, -radius);
+  ctx.lineTo(length, -radius);
+  ctx.arc(length, 0, radius, -Math.PI / 2, Math.PI / 2);
+  ctx.lineTo(0, radius);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  
+  // Cylinder top face (ellipse at 0)
+  ctx.beginPath();
+  ctx.ellipse(0, 0, radius * 0.4, radius, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffeaa7';
+  ctx.fill();
+  ctx.stroke();
+  
+  // Longitudinal lines to show microtubule triplets
+  ctx.beginPath();
+  for (let i = -radius + 3; i < radius; i += 3) {
+    if (Math.abs(i) < radius - 1) {
+      ctx.moveTo(3, i);
+      ctx.lineTo(length - 3, i);
+    }
+  }
+  ctx.strokeStyle = 'rgba(44, 62, 80, 0.3)';
+  ctx.lineWidth = 1.0;
+  ctx.stroke();
+  
+  ctx.restore();
 }
 
 function drawCentrosome(w, h, c) {
   if (c.op < 0.02) return;
   const cx = c.x * w, cy = c.y * h;
   ctx.globalAlpha = c.op;
-  // sun burst
-  for (let i = 0; i < 8; i++) {
-    const ang = (i / 8) * Math.PI * 2 + time * 0.002;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(ang)*18, cy + Math.sin(ang)*18);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#ffd32a';
-    ctx.stroke();
-  }
+  
+  // Draw Aster (fine radiating microtubule fibers)
   ctx.beginPath();
-  ctx.arc(cx, cy, 10, 0, Math.PI * 2);
-  ctx.fillStyle = '#ffd32a';
-  ctx.fill();
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = '#fff';
+  for (let i = 0; i < 16; i++) {
+    const ang = (i / 16) * Math.PI * 2 + time * 0.0006;
+    ctx.moveTo(cx + Math.cos(ang) * 10, cy + Math.sin(ang) * 10);
+    ctx.lineTo(cx + Math.cos(ang) * 34, cy + Math.sin(ang) * 34);
+  }
+  ctx.strokeStyle = 'rgba(232, 67, 147, 0.45)';
+  ctx.lineWidth = 1.2;
   ctx.stroke();
+  
+  // Perpendicular centrioles (T-shape)
+  // Horizontal centriole
+  drawCentrioleCylinder(cx - 7, cy - 3, 0, 15, 5, '#ffd32a');
+  // Vertical centriole
+  drawCentrioleCylinder(cx - 3, cy - 9, Math.PI / 2, 15, 5, '#ffa502');
+  
   ctx.globalAlpha = 1;
 }
 
@@ -736,35 +969,44 @@ function drawSpindles(w, h, sc) {
   sc.centro.forEach(cen => {
     if (cen.op < 0.3) return;
     chroms.forEach(ch => {
-      ctx.globalAlpha = cen.op * 0.45;
+      ctx.globalAlpha = cen.op * 0.4;
       ctx.beginPath();
       ctx.moveTo(cen.x * w, cen.y * h);
       ctx.lineTo(ch.x * w, ch.y * h);
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#ff9ff3';
-      ctx.setLineDash([6, 5]);
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = 'rgba(108, 92, 231, 0.5)'; // clean textbook purple spindle
       ctx.stroke();
-      ctx.setLineDash([]);
       ctx.globalAlpha = 1;
     });
   });
 }
 
 function drawChromosome(w, h, ch) {
-  if ((ch.op ?? 1) < 0.05 || ch.s < 0.05) return;
+  let chromOp = 1;
+  if (step === 0) {
+    chromOp = transitioning ? 1 - animT : 0;
+  } else if (step === 1) {
+    chromOp = transitioning ? animT : 1;
+  }
+
+  const finalChOp = (ch.op ?? 1) * chromOp;
+  if (finalChOp < 0.05 || ch.s < 0.05) return;
+  
   const cx = ch.x * w, cy = ch.y * h;
   const colors = CHROM_COLORS[ch.c] || CHROM_COLORS[0];
   const scale = ch.s;
   const splitDist = (ch.sp ?? 0) * w;
 
   ctx.save();
+  ctx.globalAlpha = finalChOp;
   ctx.translate(cx, cy);
   ctx.rotate(ch.a * Math.PI / 180);
   ctx.scale(scale, scale);
 
   if (ch.xo && ch.p) {
-    drawChromatidPair(-10, 0, colors[0], ch.co > 0.5);
-    drawChromatidPair(10, 0, colors[1], false);
+    // homologous pairs link up
+    drawChromatidPair(-10, 0, colors[0], ch.co > 0.5, colors[1]);
+    drawChromatidPair(10, 0, colors[1], ch.co > 0.5, colors[0]);
   } else if (ch.p) {
     drawChromatidPair(0, 0, colors[0], false);
   } else if (splitDist > 1) {
@@ -777,34 +1019,328 @@ function drawChromosome(w, h, ch) {
   ctx.restore();
 }
 
-function drawChromatidPair(ox, oy, color, crossover) {
-  const h = 36, w = 8;
+function drawChromatidPair(ox, oy, color, crossover, opposingColor) {
+  const h = 32, w = 7;
   ctx.lineCap = 'round';
-  ctx.lineWidth = w;
+  
+  // 1. Draw outer dark outlines for both sister chromatids
+  ctx.strokeStyle = '#2c3e50';
+  ctx.lineWidth = 8.5;
+  
+  // Left sister chromatid outline
+  ctx.beginPath();
+  ctx.moveTo(ox - 5, oy - h/2);
+  ctx.quadraticCurveTo(ox - 1.5, oy, ox - 5, oy + h/2);
+  ctx.stroke();
+
+  // Right sister chromatid outline
+  ctx.beginPath();
+  ctx.moveTo(ox + 5, oy - h/2);
+  ctx.quadraticCurveTo(ox + 1.5, oy, ox + 5, oy + h/2);
+  ctx.stroke();
+
+  // 2. Draw inner color fills
   ctx.strokeStyle = color;
-  ctx.beginPath(); ctx.moveTo(ox-4, oy-h/2); ctx.lineTo(ox-4, oy+h/2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(ox+4, oy-h/2); ctx.lineTo(ox+4, oy+h/2); ctx.stroke();
-  ctx.beginPath(); ctx.arc(ox, oy, 5, 0, Math.PI*2);
-  ctx.fillStyle = '#fff'; ctx.fill();
-  ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.stroke();
-  if (crossover) {
+  ctx.lineWidth = 5.2;
+
+  // Left sister fill
+  ctx.beginPath();
+  ctx.moveTo(ox - 5, oy - h/2);
+  ctx.quadraticCurveTo(ox - 1.5, oy, ox - 5, oy + h/2);
+  ctx.stroke();
+
+  // Right sister fill
+  ctx.beginPath();
+  ctx.moveTo(ox + 5, oy - h/2);
+  ctx.quadraticCurveTo(ox + 1.5, oy, ox + 5, oy + h/2);
+  ctx.stroke();
+
+  // Meiosis crossing over visualization (color swap on bottom inner chromatid tip)
+  if (crossover && opposingColor) {
+    ctx.save();
+    // Clip to bottom-inner quadrant
     ctx.beginPath();
-    ctx.moveTo(ox-8, oy-10);
-    ctx.quadraticCurveTo(ox+2, oy, ox+8, oy+10);
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#ffd32a';
+    if (ox < 0) {
+      // Left chromosome: inner chromatid is on the right, clip bottom-right
+      ctx.rect(ox, oy + 2, 25, 25);
+    } else {
+      // Right chromosome: inner chromatid is on the left, clip bottom-left
+      ctx.rect(ox - 25, oy + 2, 25, 25);
+    }
+    ctx.clip();
+    
+    // Draw bottom inner tip in opposing color
+    ctx.strokeStyle = opposingColor;
+    ctx.lineWidth = 5.2;
+    ctx.beginPath();
+    if (ox < 0) {
+      ctx.moveTo(ox + 5, oy - h/2);
+      ctx.quadraticCurveTo(ox + 1.5, oy, ox + 5, oy + h/2);
+    } else {
+      ctx.moveTo(ox - 5, oy - h/2);
+      ctx.quadraticCurveTo(ox - 1.5, oy, ox - 5, oy + h/2);
+    }
     ctx.stroke();
-    // sparkle
-    ctx.font = '14px sans-serif';
-    ctx.fillText('✨', ox - 18, oy - 14);
+    ctx.restore();
+    
+    // Draw a small crossover bridge indicator
+    if (ox < 0) {
+      ctx.beginPath();
+      ctx.moveTo(ox + 3, oy + 3);
+      ctx.lineTo(ox + 13, oy + 8);
+      ctx.strokeStyle = '#2c3e50';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
   }
+
+  // 3. Draw Centromere dot
+  ctx.beginPath();
+  ctx.arc(ox, oy, 3.8, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#2c3e50';
+  ctx.stroke();
 }
 
 function drawSingleChromatid(ox, oy, color) {
   ctx.lineCap = 'round';
-  ctx.lineWidth = 7;
+  
+  // Determine backward bend direction based on motion (ox < 0 or ox > 0)
+  let bend = 0;
+  if (ox < -5) bend = 5;       // arms trail to the right (positive x)
+  else if (ox > 5) bend = -5;  // arms trail to the left (negative x)
+  
+  // Outer outline
+  ctx.lineWidth = 8.5;
+  ctx.strokeStyle = '#2c3e50';
+  ctx.beginPath();
+  ctx.moveTo(ox + bend, oy - 14);
+  ctx.quadraticCurveTo(ox - bend * 0.5, oy, ox + bend, oy + 14);
+  ctx.stroke();
+
+  // Inner fill
+  ctx.lineWidth = 5.2;
   ctx.strokeStyle = color;
-  ctx.beginPath(); ctx.moveTo(ox, oy-16); ctx.lineTo(ox, oy+16); ctx.stroke();
+  ctx.stroke();
+  
+  // Centromere dot on leading edge
+  ctx.beginPath();
+  ctx.arc(ox - bend * 0.25, oy, 3.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#2c3e50';
+  ctx.stroke();
+}
+
+function drawCallout(text, tx, ty, lx, ly, isLeft) {
+  // Measure text to know badge dimensions
+  ctx.font = 'bold 12px "Nunito", sans-serif';
+  const tw = ctx.measureText(text).width;
+  const bh = 22;
+  const bw = tw + 16;
+  
+  // Left side: badge starts at lx, extends right. Right side: badge ends at lx, extends left.
+  const bx = isLeft ? lx : lx - bw;
+  const by = ly - bh / 2;
+  
+  // Attach point for leader line (right edge of left badge, left edge of right badge)
+  const attachX = isLeft ? lx + bw : lx - bw;
+  
+  // 1. Draw dot at target structure
+  ctx.beginPath();
+  ctx.arc(tx, ty, 3.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#2c3e50';
+  ctx.fill();
+  
+  // 2. Draw leader line (diagonal then straight horizontal to attachX)
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  const pivotX = isLeft ? attachX + 15 : attachX - 15;
+  ctx.lineTo(pivotX, ly);
+  ctx.lineTo(attachX, ly);
+  ctx.strokeStyle = 'rgba(44, 62, 80, 0.65)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  
+  // 3. Draw white text badge
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.06)';
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetY = 2;
+  
+  ctx.beginPath();
+  ctx.roundRect(bx, by, bw, bh, 5);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  
+  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = '#2c3e50';
+  ctx.stroke();
+  
+  // Draw label text
+  ctx.fillStyle = '#2c3e50';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, bx + bw / 2, ly + 0.5);
+  ctx.restore();
+}
+
+function getLabelsForStep(w, h, sc) {
+  const labels = [];
+  const cx = w * 0.5, cy = h * 0.5;
+  const rx = sc.cellRX * w;
+  const ry = sc.cellRY * h;
+  
+  // Plasma Membrane - always visible
+  if (sc.quadSplit > 0.01) {
+    labels.push({
+      text: "Plasma Membrane",
+      tx: cx - rx * 1.3, ty: cy - ry * 0.3,
+      lx: cx - rx * 2.1, ly: cy - ry * 0.7,
+      isLeft: true
+    });
+  } else if (sc.pinch > 0.05) {
+    labels.push({
+      text: "Contracting Membrane",
+      tx: cx - sc.sep * w - rx * 0.4, ty: cy - ry * 0.7,
+      lx: cx - rx * 1.6, ly: cy - ry * 1.0,
+      isLeft: true
+    });
+    labels.push({
+      text: "Cleavage Furrow",
+      tx: cx, ty: cy - ry * (1 - sc.pinch) * 0.2,
+      lx: cx - 40, ly: cy - ry - 40,
+      isLeft: true
+    });
+  } else {
+    labels.push({
+      text: "Plasma Membrane",
+      tx: cx - rx * 0.7, ty: cy - ry * 0.7,
+      lx: cx - rx - 80, ly: cy - ry * 0.6,
+      isLeft: true
+    });
+  }
+  
+  // Nuclear Envelope
+  sc.nuc.forEach((n, idx) => {
+    if (n.op > 0.15) {
+      if (idx === 0) {
+        const ncx = n.x * w, ncy = n.y * h;
+        const nrx = n.rx * w, nry = n.ry * h;
+        const isDegrading = (step === 1 || (mode === 'meiosis' && step === 5));
+        const labelText = isDegrading ? "Nuclear Envelope (fragmenting)" : "Nuclear Envelope";
+        labels.push({
+          text: labelText,
+          tx: ncx - nrx * 0.75, ty: ncy - nry * 0.65,
+          lx: ncx - nrx - 90, ly: ncy - nry * 1.15,
+          isLeft: true
+        });
+      }
+    }
+  });
+  
+  // Centrosome / Centrioles
+  const activeCentros = sc.centro.filter(c => c.op > 0.15);
+  if (activeCentros.length > 0) {
+    const c = activeCentros[0];
+    labels.push({
+      text: "Centrosome (Centriole Pair)",
+      tx: c.x * w, ty: c.y * h,
+      lx: c.x * w - 60, ly: c.y * h - 50,
+      isLeft: true
+    });
+    if (activeCentros.length > 1) {
+      const c2 = activeCentros[1];
+      labels.push({
+        text: "Mitotic Spindle Pole",
+        tx: c2.x * w, ty: c2.y * h,
+        lx: c2.x * w + 60, ly: c2.y * h - 50,
+        isLeft: false
+      });
+    }
+  }
+  
+  // Spindles
+  if (sc.centro.some(c => c.op > 0.5) && step >= 2 && step <= 4) {
+    labels.push({
+      text: "Spindle Fibers (Microtubules)",
+      tx: cx - rx * 0.4, ty: cy - ry * 0.15,
+      lx: cx - rx - 55, ly: cy + ry * 0.75,
+      isLeft: true
+    });
+  }
+  
+  // Chromatin / Chromosomes
+  if (step === 0) {
+    const n = sc.nuc[0];
+    if (n) {
+      labels.push({
+        text: "Chromatin (diffuse DNA threads)",
+        tx: n.x * w + n.rx * w * 0.25, ty: n.y * h + n.ry * h * 0.25,
+        lx: n.x * w + n.rx * w + 70, ly: n.y * h - n.ry * h * 0.6,
+        isLeft: false
+      });
+    }
+  } else {
+    const visibleChroms = sc.chrom.filter(c => (c.op ?? 1) > 0.5);
+    if (visibleChroms.length > 0) {
+      const ch = visibleChroms[Math.floor(visibleChroms.length / 2)];
+      let chromText = "Sister Chromatids";
+      if (mode === 'meiosis') {
+        if (step === 1) chromText = "Homologous Chromosomes (synapsed)";
+        else if (step === 2) chromText = "Homologous Pairs aligned";
+        else if (step === 3) chromText = "Homologous Chromosomes separating";
+        else if (step === 7) chromText = "Sister Chromatids separating";
+      } else {
+        if (step === 2) chromText = "Chromosomes aligned at Metaphase Plate";
+        else if (step === 3) chromText = "Sister Chromatids separating";
+      }
+      
+      labels.push({
+        text: chromText,
+        tx: ch.x * w, ty: ch.y * h,
+        lx: cx + rx + 65, ly: cy - ry * 0.35,
+        isLeft: false
+      });
+    }
+  }
+  
+  return labels;
+}
+
+function drawLabels(w, h, sc) {
+  const rawLabels = getLabelsForStep(w, h, sc);
+  
+  // Clean, consistent margins: badges start 15px (mobile) or 35px (desktop) from screen edges
+  const leftColX = w < 680 ? 15 : 35;
+  const rightColX = w < 680 ? w - 15 : w - 35;
+  
+  const leftLabels = rawLabels.filter(l => l.isLeft);
+  const rightLabels = rawLabels.filter(l => !l.isLeft);
+  
+  leftLabels.forEach(l => l.lx = leftColX);
+  rightLabels.forEach(l => l.lx = rightColX);
+  
+  // Avoid overlaps vertically
+  const spaceLabels = (list) => {
+    list.sort((a, b) => a.ly - b.ly);
+    const minDist = 30;
+    for (let i = 1; i < list.length; i++) {
+      if (list[i].ly - list[i-1].ly < minDist) {
+        list[i].ly = list[i-1].ly + minDist;
+      }
+    }
+  };
+  
+  spaceLabels(leftLabels);
+  spaceLabels(rightLabels);
+  
+  leftLabels.forEach(l => drawCallout(l.text, l.tx, l.ty, l.lx, l.ly, true));
+  rightLabels.forEach(l => drawCallout(l.text, l.tx, l.ty, l.lx, l.ly, false));
 }
 
 function drawScene(sc) {
@@ -815,6 +1351,9 @@ function drawScene(sc) {
   drawSpindles(w, h, sc);
   sc.centro.forEach(c => drawCentrosome(w, h, c));
   sc.chrom.forEach(ch => drawChromosome(w, h, ch));
+  
+  // Draw Textbook Callout Labels
+  drawLabels(w, h, sc);
 }
 
 /* ================================================================
