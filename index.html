@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cell Division — Mitosis & Meiosis</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      font-family: 'Nunito', sans-serif;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(160deg, #6ecbff 0%, #b388ff 45%, #ff8dc7 100%);
+    }
+
+    #canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .overlay {
+      position: absolute;
+      left: 0; right: 0;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .overlay > * { pointer-events: auto; }
+
+    .overlay-top {
+      top: 0;
+      padding: 14px 18px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .title-badge {
+      background: #fff;
+      border: 4px solid #ff6b9d;
+      border-radius: 999px;
+      padding: 8px 28px;
+      font-family: 'Fredoka', sans-serif;
+      font-size: clamp(1.1rem, 3vw, 1.65rem);
+      font-weight: 700;
+      color: #ff3d7f;
+      box-shadow: 0 6px 0 #e0356f, 0 8px 24px rgba(0,0,0,0.15);
+      text-shadow: 1px 1px 0 rgba(255,255,255,0.8);
+    }
+
+    .mode-tabs {
+      display: flex;
+      gap: 10px;
+    }
+
+    .mode-tab {
+      padding: 10px 22px;
+      border: 3px solid #fff;
+      border-radius: 999px;
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 0 rgba(0,0,0,0.12);
+    }
+
+    .mode-tab:active { transform: translateY(3px); box-shadow: none; }
+
+    .mode-tab[data-mode="mitosis"] {
+      background: #7bed9f;
+      color: #1a7a3a;
+    }
+
+    .mode-tab[data-mode="meiosis"] {
+      background: #ffa502;
+      color: #8a4f00;
+    }
+
+    .mode-tab.active {
+      transform: scale(1.08);
+      box-shadow: 0 0 0 4px #fff, 0 6px 0 rgba(0,0,0,0.15);
+    }
+
+    .phase-card {
+      background: rgba(255,255,255,0.92);
+      border: 3px solid #fff;
+      border-radius: 20px;
+      padding: 10px 24px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      max-width: 90vw;
+    }
+
+    #phase-name {
+      font-family: 'Fredoka', sans-serif;
+      font-size: clamp(1.2rem, 3.5vw, 1.8rem);
+      font-weight: 700;
+      color: #5f27cd;
+      display: block;
+    }
+
+    #phase-sub {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #8395a7;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .overlay-bottom {
+      bottom: 0;
+      padding: 0 14px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .info-panel {
+      background: rgba(255,255,255,0.93);
+      border: 3px solid #fff;
+      border-radius: 18px;
+      padding: 12px 18px;
+      max-width: 720px;
+      width: 100%;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      color: #2d3436;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.1);
+      max-height: 80px;
+      overflow-y: auto;
+    }
+
+    .info-panel strong { color: #ff3d7f; }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 11px 20px;
+      border: 3px solid #fff;
+      border-radius: 14px;
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      box-shadow: 0 5px 0 rgba(0,0,0,0.15);
+      transition: transform 0.1s;
+    }
+
+    .btn:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-play {
+      background: #2ed573;
+      color: #fff;
+      min-width: 110px;
+      font-size: 1.05rem;
+    }
+
+    .btn-play.playing { background: #ff6b81; }
+
+    .btn-nav { background: #fff; color: #576574; }
+    .btn-next { background: #54a0ff; color: #fff; }
+
+    .step-counter {
+      background: #fff;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-weight: 800;
+      color: #5f27cd;
+      font-size: 0.85rem;
+      border: 2px solid #dfe6e9;
+    }
+
+    .stage-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .stage-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.5);
+      border: 2px solid #fff;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s;
+    }
+
+    .stage-dot.done { background: #7bed9f; }
+    .stage-dot.active {
+      background: #ff6b9d;
+      transform: scale(1.45);
+      box-shadow: 0 0 10px #ff6b9d;
+    }
+
+    .progress-bar {
+      width: min(420px, 80vw);
+      height: 8px;
+      background: rgba(255,255,255,0.45);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 2px solid #fff;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #7bed9f, #ff6b9d);
+      border-radius: 999px;
+      transition: width 0.1s linear;
+      width: 0%;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <canvas id="canvas"></canvas>
+
+  <div class="overlay overlay-top">
+    <div class="title-badge">🧬 Cell Division Adventure!</div>
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="mitosis">Mitosis</button>
+      <button class="mode-tab" data-mode="meiosis">Meiosis</button>
+    </div>
+    <div class="phase-card">
+      <span id="phase-name">Interphase</span>
+      <span id="phase-sub">Cell grows &amp; DNA replicates</span>
+    </div>
+  </div>
+
+  <div class="overlay overlay-bottom">
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="stage-bar" id="stage-bar"></div>
+    <div class="info-panel" id="info-panel"></div>
+    <div class="controls">
+      <button class="btn btn-play" id="btn-play">▶ Play</button>
+      <button class="btn btn-nav" id="btn-prev" disabled>◀ Prev</button>
+      <span class="step-counter" id="step-counter">1 / 7</span>
+      <button class="btn btn-next" id="btn-next">Next ▶</button>
+      <button class="btn btn-nav" id="btn-reset">↺ Reset</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   STAGE METADATA
+   ================================================================ */
+const MITOSIS_META = [
+  { name: 'Interphase', sub: 'Cell grows & DNA replicates',
+    info: '<strong>Interphase</strong> — The cell grows and copies its DNA. Each chromosome now has two <strong>sister chromatids</strong> joined together!' },
+  { name: 'Prophase', sub: 'Chromosomes appear!',
+    info: '<strong>Prophase</strong> — Chromosomes become visible! The nucleus breaks apart and spindles start forming at each end.' },
+  { name: 'Metaphase', sub: 'Chromosomes line up in the middle',
+    info: '<strong>Metaphase</strong> — All chromosomes line up at the middle of the cell like soldiers on a parade line!' },
+  { name: 'Anaphase', sub: 'Chromosomes pull apart!',
+    info: '<strong>Anaphase</strong> — Sister chromatids are pulled to opposite sides of the cell. Watch them zoom apart!' },
+  { name: 'Telophase', sub: 'Two new nuclei form',
+    info: '<strong>Telophase</strong> — Two brand-new nuclei form, one at each end. The cell is almost ready to split!' },
+  { name: 'Cytokinesis', sub: 'The cell pinches in two!',
+    info: '<strong>Cytokinesis</strong> — The cell membrane pinches inward like a drawstring bag until — POP — two cells!' },
+  { name: 'Complete!', sub: 'Two identical daughter cells',
+    info: '🎉 <strong>Mitosis complete!</strong> Two identical cells, ready to grow and do it all again!' }
+];
+
+const MEIOSIS_META = [
+  { name: 'Interphase', sub: 'DNA copies before meiosis',
+    info: '<strong>Interphase</strong> — DNA replicates. The cell has matching <strong>homologous pairs</strong> from mom and dad.' },
+  { name: 'Prophase I', sub: 'Pairs swap DNA!',
+    info: '<strong>Prophase I</strong> — Homologous pairs link up and swap pieces of DNA. This is <strong>crossing over</strong> — it makes you unique!' },
+  { name: 'Metaphase I', sub: 'Pairs line up in the middle',
+    info: '<strong>Metaphase I</strong> — Homologous <em>pairs</em> (not individual chromosomes) line up at the center.' },
+  { name: 'Anaphase I', sub: 'Pairs pull apart!',
+    info: '<strong>Anaphase I</strong> — Homologous chromosomes separate. Sister chromatids stay together — that\'s the big difference from mitosis!' },
+  { name: 'Telophase I', sub: 'First split — 2 cells!',
+    info: '<strong>Telophase I</strong> — The cell divides into <strong>two haploid cells</strong>. Meiosis II is next!' },
+  { name: 'Prophase II', sub: 'Spindles form again',
+    info: '<strong>Prophase II</strong> — In each cell, new spindles form. No more DNA copying!' },
+  { name: 'Metaphase II', sub: 'Chromosomes line up again',
+    info: '<strong>Metaphase II</strong> — Chromosomes line up at the middle in both cells at once.' },
+  { name: 'Anaphase II', sub: 'Sisters separate!',
+    info: '<strong>Anaphase II</strong> — Sister chromatids finally pull apart in both cells!' },
+  { name: 'Telophase II', sub: 'Four cells form!',
+    info: '<strong>Telophase II</strong> — Four cells pinching apart — each one becomes a unique gamete!' },
+  { name: 'Complete!', sub: 'Four unique gametes',
+    info: '🎉 <strong>Meiosis complete!</strong> Four unique haploid cells — sperm or egg — each genetically different!' }
+];
+
+/* ================================================================
+   SCENE KEYFRAMES  (all coords normalized 0–1 of canvas)
+   pinch: 0 = one round cell, 1 = fully divided
+   cellCount: 1, 2, or 4
+   ================================================================ */
+function K(p) { return p; } // shorthand
+
+const MITOSIS_KF = [
+  // 0 Interphase
+  { pinch:0, sep:0, cellRX:0.19, cellRY:0.22,
+    nuc:[K({x:0.5,y:0.5,rx:0.11,ry:0.08,op:1})],
+    chrom:[K({x:0.42,y:0.44,a:-20,s:0.85,c:0,p:1,xo:0}),K({x:0.58,y:0.46,a:15,s:0.85,c:1,p:1,xo:0}),
+           K({x:0.44,y:0.56,a:10,s:0.85,c:2,p:1,xo:0}),K({x:0.57,y:0.57,a:-15,s:0.85,c:3,p:1,xo:0})],
+    centro:[K({x:0.5,y:0.5,op:0}),K({x:0.5,y:0.5,op:0})], furrow:0 },
+  // 1 Prophase
+  { pinch:0, sep:0, cellRX:0.19, cellRY:0.22,
+    nuc:[K({x:0.5,y:0.5,rx:0.11,ry:0.08,op:0.25})],
+    chrom:[K({x:0.38,y:0.38,a:25,s:1,c:0,p:1,xo:0}),K({x:0.62,y:0.40,a:-20,s:1,c:1,p:1,xo:0}),
+           K({x:0.40,y:0.62,a:15,s:1,c:2,p:1,xo:0}),K({x:0.60,y:0.60,a:-25,s:1,c:3,p:1,xo:0})],
+    centro:[K({x:0.14,y:0.5,op:1}),K({x:0.86,y:0.5,op:1})], furrow:0 },
+  // 2 Metaphase
+  { pinch:0, sep:0, cellRX:0.19, cellRY:0.22,
+    nuc:[K({x:0.5,y:0.5,rx:0.11,ry:0.08,op:0})],
+    chrom:[K({x:0.5,y:0.36,a:0,s:1.05,c:0,p:1,xo:0}),K({x:0.5,y:0.44,a:0,s:1.05,c:1,p:1,xo:0}),
+           K({x:0.5,y:0.56,a:0,s:1.05,c:2,p:1,xo:0}),K({x:0.5,y:0.64,a:0,s:1.05,c:3,p:1,xo:0})],
+    centro:[K({x:0.10,y:0.5,op:1}),K({x:0.90,y:0.5,op:1})], furrow:0 },
+  // 3 Anaphase — sisters slide apart via split
+  { pinch:0, sep:0, cellRX:0.20, cellRY:0.22,
+    nuc:[K({x:0.5,y:0.5,rx:0.11,ry:0.08,op:0})],
+    chrom:[K({x:0.5,y:0.36,a:0,s:0.9,c:0,p:0,xo:0,sp:0.26}),K({x:0.5,y:0.44,a:0,s:0.9,c:1,p:0,xo:0,sp:0.26}),
+           K({x:0.5,y:0.56,a:0,s:0.9,c:2,p:0,xo:0,sp:0.26}),K({x:0.5,y:0.64,a:0,s:0.9,c:3,p:0,xo:0,sp:0.26})],
+    centro:[K({x:0.08,y:0.5,op:1}),K({x:0.92,y:0.5,op:1})], furrow:0 },
+  // 4 Telophase
+  { pinch:0, sep:0, cellRX:0.20, cellRY:0.22,
+    nuc:[K({x:0.30,y:0.5,rx:0.09,ry:0.07,op:0.85}),K({x:0.70,y:0.5,rx:0.09,ry:0.07,op:0.85})],
+    chrom:[K({x:0.30,y:0.42,a:0,s:0.75,c:0,p:0,xo:0,sp:0}),K({x:0.70,y:0.42,a:0,s:0.75,c:1,p:0,xo:0,sp:0}),
+           K({x:0.30,y:0.58,a:0,s:0.75,c:2,p:0,xo:0,sp:0}),K({x:0.70,y:0.58,a:0,s:0.75,c:3,p:0,xo:0,sp:0})],
+    centro:[K({x:0.08,y:0.5,op:0.3}),K({x:0.92,y:0.5,op:0.3})], furrow:0 },
+  // 5 Cytokinesis
+  { pinch:0.72, sep:0.14, cellRX:0.19, cellRY:0.22,
+    nuc:[K({x:0.36,y:0.5,rx:0.08,ry:0.06,op:1}),K({x:0.64,y:0.5,rx:0.08,ry:0.06,op:1})],
+    chrom:[K({x:0.32,y:0.44,a:0,s:0.65,c:0,p:0,xo:0}),K({x:0.68,y:0.44,a:0,s:0.65,c:1,p:0,xo:0}),
+           K({x:0.32,y:0.56,a:0,s:0.65,c:2,p:0,xo:0}),K({x:0.68,y:0.56,a:0,s:0.65,c:3,p:0,xo:0})],
+    centro:[K({x:0.08,y:0.5,op:0}),K({x:0.92,y:0.5,op:0})], furrow:0.75 },
+  // 6 Complete
+  { pinch:1, sep:0.22, cellRX:0.19, cellRY:0.22,
+    nuc:[K({x:0.28,y:0.5,rx:0.08,ry:0.06,op:1}),K({x:0.72,y:0.5,rx:0.08,ry:0.06,op:1})],
+    chrom:[K({x:0.24,y:0.46,a:0,s:0.6,c:0,p:0,xo:0}),K({x:0.76,y:0.46,a:0,s:0.6,c:1,p:0,xo:0}),
+           K({x:0.24,y:0.54,a:0,s:0.6,c:2,p:0,xo:0}),K({x:0.76,y:0.54,a:0,s:0.6,c:3,p:0,xo:0})],
+    centro:[K({x:0.08,y:0.5,op:0}),K({x:0.92,y:0.5,op:0})], furrow:0 }
+];
+
+const MEIOSIS_KF = [
+  // 0 Interphase
+  { pinch:0, sep:0, cellRX:0.19, cellRY:0.22,
+    nuc:[K({x:0.5,y:0.5,rx:0.12,ry:0.09,op:1})],
+    chrom:[K({x:0.42,y:0.44,a:0,s:0.9,c:0,p:1,xo:1}),K({x:0.58,y:0.56,a:0,s:0.9,c:2,p:1,xo:1})],
+    centro:[K({x:0.5,y:0.5,op:0}),K({x:0.5,y:0.5,op:0})], furrow:0, cellCount:1 },
+  // 1 Prophase I
+  { pinch:0, sep:0, cellRX:0.19, cellRY:0.22,
+    nuc:[K({x:0.5,y:0.5,rx:0.12,ry:0.09,op:0.2})],
+    chrom:[K({x:0.5,y:0.40,a:0,s:1,c:0,p:1,xo:1,co:1}),K({x:0.5,y:0.60,a:0,s:1,c:2,p:1,xo:1,co:1})],
+    centro:[K({x:0.14,y:0.5,op:1}),K({x:0.86,y:0.5,op:1})], furrow:0, cellCount:1 },
+  // 2 Metaphase I
+  { pinch:0, sep:0, cellRX:0.19, cellRY:0.22,
+    nuc:[K({x:0.5,y:0.5,rx:0.12,ry:0.09,op:0})],
+    chrom:[K({x:0.5,y:0.38,a:0,s:1,c:0,p:1,xo:1}),K({x:0.5,y:0.62,a:0,s:1,c:2,p:1,xo:1})],
+    centro:[K({x:0.10,y:0.5,op:1}),K({x:0.90,y:0.5,op:1})], furrow:0, cellCount:1 },
+  // 3 Anaphase I
+  { pinch:0, sep:0, cellRX:0.20, cellRY:0.22,
+    nuc:[K({x:0.5,y:0.5,rx:0.12,ry:0.09,op:0})],
+    chrom:[K({x:0.24,y:0.40,a:0,s:0.95,c:0,p:1,xo:0}),K({x:0.76,y:0.40,a:0,s:0.95,c:1,p:1,xo:0}),
+           K({x:0.24,y:0.60,a:0,s:0.95,c:2,p:1,xo:0}),K({x:0.76,y:0.60,a:0,s:0.95,c:3,p:1,xo:0})],
+    centro:[K({x:0.08,y:0.5,op:1}),K({x:0.92,y:0.5,op:1})], furrow:0, cellCount:1 },
+  // 4 Telophase I
+  { pinch:0.75, sep:0.13, cellRX:0.19, cellRY:0.22,
+    nuc:[K({x:0.36,y:0.5,rx:0.09,ry:0.07,op:1}),K({x:0.64,y:0.5,rx:0.09,ry:0.07,op:1})],
+    chrom:[K({x:0.32,y:0.42,a:0,s:0.8,c:0,p:1,xo:0}),K({x:0.68,y:0.42,a:0,s:0.8,c:1,p:1,xo:0}),
+           K({x:0.32,y:0.58,a:0,s:0.8,c:2,p:1,xo:0}),K({x:0.68,y:0.58,a:0,s:0.8,c:3,p:1,xo:0})],
+    centro:[K({x:0.08,y:0.5,op:0}),K({x:0.92,y:0.5,op:0})], furrow:0.7, cellCount:2 },
+  // 5 Prophase II
+  { pinch:1, sep:0.20, cellRX:0.19, cellRY:0.22,
+    nuc:[K({x:0.30,y:0.5,rx:0.07,ry:0.05,op:0.5}),K({x:0.70,y:0.5,rx:0.07,ry:0.05,op:0.5})],
+    chrom:[K({x:0.28,y:0.44,a:15,s:0.85,c:0,p:1,xo:0}),K({x:0.72,y:0.44,a:-10,s:0.85,c:1,p:1,xo:0}),
+           K({x:0.28,y:0.56,a:-15,s:0.85,c:2,p:1,xo:0}),K({x:0.72,y:0.56,a:10,s:0.85,c:3,p:1,xo:0})],
+    centro:[K({x:0.18,y:0.5,op:1}),K({x:0.82,y:0.5,op:1})], furrow:0, cellCount:2 },
+  // 6 Metaphase II
+  { pinch:1, sep:0.20, cellRX:0.19, cellRY:0.22,
+    nuc:[K({x:0.30,y:0.5,rx:0.07,ry:0.05,op:0}),K({x:0.70,y:0.5,rx:0.07,ry:0.05,op:0})],
+    chrom:[K({x:0.30,y:0.44,a:0,s:0.95,c:0,p:1,xo:0}),K({x:0.70,y:0.44,a:0,s:0.95,c:1,p:1,xo:0}),
+           K({x:0.30,y:0.56,a:0,s:0.95,c:2,p:1,xo:0}),K({x:0.70,y:0.56,a:0,s:0.95,c:3,p:1,xo:0})],
+    centro:[K({x:0.16,y:0.5,op:1}),K({x:0.84,y:0.5,op:1})], furrow:0, cellCount:2 },
+  // 7 Anaphase II
+  { pinch:1, sep:0.20, cellRX:0.19, cellRY:0.22,
+    nuc:[K({x:0.30,y:0.5,rx:0.07,ry:0.05,op:0}),K({x:0.70,y:0.5,rx:0.07,ry:0.05,op:0})],
+    chrom:[K({x:0.22,y:0.44,a:0,s:0.8,c:0,p:0,xo:0}),K({x:0.38,y:0.44,a:0,s:0.8,c:0,p:0,xo:0}),
+           K({x:0.62,y:0.44,a:0,s:0.8,c:1,p:0,xo:0}),K({x:0.78,y:0.44,a:0,s:0.8,c:1,p:0,xo:0}),
+           K({x:0.22,y:0.56,a:0,s:0.8,c:2,p:0,xo:0}),K({x:0.38,y:0.56,a:0,s:0.8,c:2,p:0,xo:0}),
+           K({x:0.62,y:0.56,a:0,s:0.8,c:3,p:0,xo:0}),K({x:0.78,y:0.56,a:0,s:0.8,c:3,p:0,xo:0})],
+    centro:[K({x:0.14,y:0.5,op:1}),K({x:0.86,y:0.5,op:1})], furrow:0, cellCount:2 },
+  // 8 Telophase II
+  { pinch:1, sep:0.20, cellRX:0.19, cellRY:0.22, quadSplit:0.55,
+    nuc:[K({x:0.18,y:0.5,rx:0.06,ry:0.045,op:0.9}),K({x:0.38,y:0.5,rx:0.06,ry:0.045,op:0.9}),
+         K({x:0.62,y:0.5,rx:0.06,ry:0.045,op:0.9}),K({x:0.82,y:0.5,rx:0.06,ry:0.045,op:0.9})],
+    chrom:[K({x:0.16,y:0.46,a:0,s:0.55,c:0,p:0,xo:0}),K({x:0.36,y:0.46,a:0,s:0.55,c:1,p:0,xo:0}),
+           K({x:0.64,y:0.46,a:0,s:0.55,c:2,p:0,xo:0}),K({x:0.84,y:0.46,a:0,s:0.55,c:3,p:0,xo:0})],
+    centro:[K({x:0.14,y:0.5,op:0}),K({x:0.86,y:0.5,op:0})], furrow:0, cellCount:4 },
+  // 9 Complete
+  { pinch:1, sep:0.20, cellRX:0.19, cellRY:0.22, quadSplit:1,
+    nuc:[K({x:0.16,y:0.5,rx:0.055,ry:0.04,op:1}),K({x:0.38,y:0.5,rx:0.055,ry:0.04,op:1}),
+         K({x:0.62,y:0.5,rx:0.055,ry:0.04,op:1}),K({x:0.84,y:0.5,rx:0.055,ry:0.04,op:1})],
+    chrom:[K({x:0.16,y:0.48,a:0,s:0.5,c:0,p:0,xo:0}),K({x:0.38,y:0.48,a:0,s:0.5,c:1,p:0,xo:0}),
+           K({x:0.62,y:0.48,a:0,s:0.5,c:2,p:0,xo:0}),K({x:0.84,y:0.48,a:0,s:0.5,c:3,p:0,xo:0})],
+    centro:[K({x:0.14,y:0.5,op:0}),K({x:0.86,y:0.5,op:0})], furrow:0, cellCount:4 }
+];
+
+// pad older mitosis chrom entries with split:0
+MITOSIS_KF.forEach(kf => kf.chrom.forEach(c => { if (c.sp === undefined) c.sp = 0; }));
+MEIOSIS_KF.forEach(kf => kf.chrom.forEach(c => { if (c.sp === undefined) c.sp = 0; }));
+
+/* ================================================================
+   COLORS & STATE
+   ================================================================ */
+const CHROM_COLORS = [
+  ['#ff4757','#ff6b81'], // red pair
+  ['#2ed573','#7bed9f'], // green pair
+  ['#ffa502','#ffc048'], // orange pair
+  ['#1e90ff','#70a1ff'], // blue pair
+];
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const phaseName = document.getElementById('phase-name');
+const phaseSub = document.getElementById('phase-sub');
+const infoPanel = document.getElementById('info-panel');
+const stageBar = document.getElementById('stage-bar');
+const stepCounter = document.getElementById('step-counter');
+const btnPrev = document.getElementById('btn-prev');
+const btnNext = document.getElementById('btn-next');
+const btnPlay = document.getElementById('btn-play');
+const progressFill = document.getElementById('progress-fill');
+
+let mode = 'mitosis';
+let step = 0;
+let playing = false;
+let animT = 1;          // 0→1 transition progress
+let holdTimer = 0;
+let fromScene = null;
+let toScene = null;
+let displayScene = null;
+let bubbles = [];
+let time = 0;
+
+const TRANSITION_MS = 2200;
+const HOLD_MS = 1800;
+let transitionStart = 0;
+let transitioning = false;
+
+function meta() { return mode === 'mitosis' ? MITOSIS_META : MEIOSIS_META; }
+function keyframes() { return mode === 'mitosis' ? MITOSIS_KF : MEIOSIS_KF; }
+
+/* ================================================================
+   MATH / INTERPOLATION
+   ================================================================ */
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeInOut = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+const easeOutBack = t => { const c = 1.70158; return 1 + (c+1)*Math.pow(t-1,3) + c*Math.pow(t-1,2); };
+
+function padChrom(arr, n) {
+  const out = arr.slice();
+  while (out.length < n) out.push({ x:0.5,y:0.5,a:0,s:0,c:0,p:1,xo:0,co:0,sp:0,op:0 });
+  return out;
+}
+
+function padNuc(arr, n) {
+  const out = arr.slice();
+  while (out.length < n) out.push({ x:0.5,y:0.5,rx:0,ry:0,op:0 });
+  return out;
+}
+
+function cloneKF(kf) {
+  return JSON.parse(JSON.stringify(kf));
+}
+
+function lerpKF(a, b, t) {
+  const e = easeInOut(t);
+  const r = {
+    pinch: lerp(a.pinch, b.pinch, e),
+    sep: lerp(a.sep ?? 0, b.sep ?? 0, e),
+    cellRX: lerp(a.cellRX, b.cellRX, e),
+    cellRY: lerp(a.cellRY, b.cellRY, e),
+    furrow: lerp(a.furrow ?? 0, b.furrow ?? 0, e),
+    quadSplit: lerp(a.quadSplit ?? 0, b.quadSplit ?? 0, easeOutBack(Math.min(1,t*1.2))),
+    cellCount: t > 0.5 ? (b.cellCount ?? 1) : (a.cellCount ?? 1),
+  };
+
+  const maxChrom = Math.max(a.chrom?.length||0, b.chrom?.length||0, 8);
+  const ca = padChrom(a.chrom||[], maxChrom);
+  const cb = padChrom(b.chrom||[], maxChrom);
+  r.chrom = ca.map((c, i) => {
+    const d = cb[i];
+    const ct = d.op !== undefined ? lerp(c.op??1, d.op??1, e) : 1;
+    return {
+      x: lerp(c.x, d.x, e), y: lerp(c.y, d.y, e),
+      a: lerp(c.a, d.a, e), s: lerp(c.s, d.s, e),
+      c: t > 0.5 ? d.c : c.c,
+      p: lerp(c.p ?? 1, d.p ?? 1, e),
+      xo: lerp(c.xo ?? 0, d.xo ?? 0, e),
+      co: lerp(c.co??0, d.co??0, e),
+      sp: lerp(c.sp??0, d.sp??0, e),
+      op: ct,
+    };
+  });
+
+  const maxNuc = Math.max(a.nuc?.length||0, b.nuc?.length||0, 4);
+  const na = padNuc(a.nuc||[], maxNuc);
+  const nb = padNuc(b.nuc||[], maxNuc);
+  r.nuc = na.map((n, i) => ({
+    x: lerp(n.x, nb[i].x, e), y: lerp(n.y, nb[i].y, e),
+    rx: lerp(n.rx, nb[i].rx, e), ry: lerp(n.ry, nb[i].ry, e),
+    op: lerp(n.op, nb[i].op, e),
+  }));
+
+  r.centro = (a.centro||[]).map((c,i) => ({
+    x: lerp(c.x, (b.centro||[])[i]?.x ?? c.x, e),
+    y: lerp(c.y, (b.centro||[])[i]?.y ?? c.y, e),
+    op: lerp(c.op, (b.centro||[])[i]?.op ?? 0, e),
+  }));
+
+  return r;
+}
+
+/* ================================================================
+   CANVAS DRAWING
+   ================================================================ */
+function resize() {
+  canvas.width = window.innerWidth * devicePixelRatio;
+  canvas.height = window.innerHeight * devicePixelRatio;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  initBubbles();
+}
+
+function initBubbles() {
+  bubbles = Array.from({ length: 18 }, () => ({
+    x: Math.random(), y: Math.random(),
+    r: 8 + Math.random() * 28,
+    speed: 0.0003 + Math.random() * 0.0008,
+    hue: Math.random() * 60 + 180,
+  }));
+}
+
+function drawBackground(w, h, t) {
+  const g = ctx.createLinearGradient(0, 0, w, h);
+  g.addColorStop(0, '#74ebd5');
+  g.addColorStop(0.35, '#88c8ff');
+  g.addColorStop(0.65, '#caa0ff');
+  g.addColorStop(1, '#ffb3d9');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  bubbles.forEach((b, i) => {
+    b.y -= b.speed;
+    if (b.y < -0.05) { b.y = 1.05; b.x = Math.random(); }
+    const bx = b.x * w + Math.sin(t * 0.001 + i) * 12;
+    const by = b.y * h;
+    ctx.beginPath();
+    ctx.arc(bx, by, b.r, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${b.hue}, 90%, 75%, 0.18)`;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+}
+
+function drawCellBlob(cx, cy, rx, ry, fillHue) {
+  const grad = ctx.createRadialGradient(cx - rx*0.25, cy - ry*0.3, rx*0.05, cx, cy, rx*1.1);
+  grad.addColorStop(0, `hsl(${fillHue}, 95%, 78%)`);
+  grad.addColorStop(0.55, `hsl(${fillHue + 15}, 90%, 62%)`);
+  grad.addColorStop(1, `hsl(${fillHue + 25}, 85%, 48%)`);
+
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = '#fff';
+  ctx.stroke();
+
+  // cartoon shine
+  ctx.beginPath();
+  ctx.ellipse(cx - rx*0.32, cy - ry*0.35, rx*0.18, ry*0.13, -0.4, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.fill();
+}
+
+function drawPinchingCell(w, h, sc) {
+  const cx = w * 0.5, cy = h * 0.5;
+  const baseRX = sc.cellRX * w;
+  const baseRY = sc.cellRY * h;
+  const pinch = sc.pinch;
+  const sep = sc.sep * w;
+  const hue = mode === 'mitosis' ? 330 : 25;
+
+  if (sc.quadSplit > 0.01) {
+    drawFourCells(w, h, sc, hue);
+    return;
+  }
+
+  if (pinch < 0.02 && (sc.cellCount ?? 1) <= 1) {
+    drawCellBlob(cx, cy, baseRX, baseRY, hue);
+    return;
+  }
+
+  if (pinch > 0.98) {
+    const leftX = cx - sep;
+    const rightX = cx + sep;
+    const rxa = baseRX * 0.58;
+    drawCellBlob(leftX, cy, rxa, baseRY * 0.95, hue);
+    drawCellBlob(rightX, cy, rxa, baseRY * 0.95, hue + 8);
+    return;
+  }
+
+  // Animated pinch — two blobs pulling apart with bridge
+  const easePinch = easeInOut(pinch);
+  const leftX = cx - sep * easePinch;
+  const rightX = cx + sep * easePinch;
+  const blobRX = baseRX * (0.55 + 0.45 * (1 - easePinch * 0.5));
+  const bridge = baseRX * 0.35 * (1 - easePinch);
+
+  drawCellBlob(leftX, cy, blobRX, baseRY * 0.96, hue);
+  drawCellBlob(rightX, cy, blobRX, baseRY * 0.96, hue + 8);
+
+  // connecting bridge (membrane between dividing cells)
+  if (bridge > 3) {
+    ctx.beginPath();
+    ctx.moveTo(leftX + blobRX * 0.5, cy - baseRY * 0.5);
+    ctx.bezierCurveTo(
+      cx, cy - baseRY * 0.5 - bridge,
+      cx, cy + baseRY * 0.5 + bridge,
+      rightX - blobRX * 0.5, cy + baseRY * 0.5
+    );
+    ctx.bezierCurveTo(
+      cx, cy + baseRY * 0.35,
+      cx, cy - baseRY * 0.35,
+      leftX + blobRX * 0.5, cy - baseRY * 0.5
+    );
+    ctx.fillStyle = `hsla(${hue}, 85%, 65%, 0.85)`;
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
+  }
+
+  // cleavage furrow
+  if (sc.furrow > 0.01) {
+    const depth = sc.furrow * baseRY * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(cx - blobRX * 0.4, cy);
+    ctx.quadraticCurveTo(cx, cy + depth, cx + blobRX * 0.4, cy);
+    ctx.lineWidth = 4 + sc.furrow * 3;
+    ctx.strokeStyle = `hsl(${hue + 40}, 90%, 55%)`;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+}
+
+function drawFourCells(w, h, sc, hue) {
+  const cy = h * 0.5;
+  const qs = easeOutBack(Math.min(1, sc.quadSplit));
+  const positions = [0.16, 0.38, 0.62, 0.84];
+  const startPositions = [0.30, 0.30, 0.70, 0.70];
+  const rx = sc.cellRX * w * 0.38;
+  const ry = sc.cellRY * h * 0.75;
+
+  positions.forEach((endX, i) => {
+    const x = lerp(startPositions[i], endX, qs) * w;
+    drawCellBlob(x, cy, rx * (0.7 + qs * 0.3), ry * (0.7 + qs * 0.3), hue + i * 12);
+  });
+}
+
+function drawNucleus(w, h, n) {
+  if (n.op < 0.02) return;
+  const cx = n.x * w, cy = n.y * h;
+  const rx = n.rx * w, ry = n.ry * h;
+  ctx.globalAlpha = n.op;
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+  g.addColorStop(0, 'rgba(200, 160, 255, 0.7)');
+  g.addColorStop(1, 'rgba(130, 80, 220, 0.35)');
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+function drawCentrosome(w, h, c) {
+  if (c.op < 0.02) return;
+  const cx = c.x * w, cy = c.y * h;
+  ctx.globalAlpha = c.op;
+  // sun burst
+  for (let i = 0; i < 8; i++) {
+    const ang = (i / 8) * Math.PI * 2 + time * 0.002;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(ang)*18, cy + Math.sin(ang)*18);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#ffd32a';
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffd32a';
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#fff';
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+function drawSpindles(w, h, sc) {
+  const chroms = sc.chrom.filter(c => (c.op ?? 1) > 0.1);
+  sc.centro.forEach(cen => {
+    if (cen.op < 0.3) return;
+    chroms.forEach(ch => {
+      ctx.globalAlpha = cen.op * 0.45;
+      ctx.beginPath();
+      ctx.moveTo(cen.x * w, cen.y * h);
+      ctx.lineTo(ch.x * w, ch.y * h);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ff9ff3';
+      ctx.setLineDash([6, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    });
+  });
+}
+
+function drawChromosome(w, h, ch) {
+  if ((ch.op ?? 1) < 0.05 || ch.s < 0.05) return;
+  const cx = ch.x * w, cy = ch.y * h;
+  const colors = CHROM_COLORS[ch.c] || CHROM_COLORS[0];
+  const scale = ch.s;
+  const splitDist = (ch.sp ?? 0) * w;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(ch.a * Math.PI / 180);
+  ctx.scale(scale, scale);
+
+  if (ch.xo && ch.p) {
+    drawChromatidPair(-10, 0, colors[0], ch.co > 0.5);
+    drawChromatidPair(10, 0, colors[1], false);
+  } else if (ch.p) {
+    drawChromatidPair(0, 0, colors[0], false);
+  } else if (splitDist > 1) {
+    ctx.save(); ctx.translate(-splitDist / scale, 0); drawSingleChromatid(0, 0, colors[0]); ctx.restore();
+    ctx.save(); ctx.translate(splitDist / scale, 0); drawSingleChromatid(0, 0, colors[0]); ctx.restore();
+  } else {
+    drawSingleChromatid(0, 0, colors[0]);
+  }
+
+  ctx.restore();
+}
+
+function drawChromatidPair(ox, oy, color, crossover) {
+  const h = 36, w = 8;
+  ctx.lineCap = 'round';
+  ctx.lineWidth = w;
+  ctx.strokeStyle = color;
+  ctx.beginPath(); ctx.moveTo(ox-4, oy-h/2); ctx.lineTo(ox-4, oy+h/2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ox+4, oy-h/2); ctx.lineTo(ox+4, oy+h/2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(ox, oy, 5, 0, Math.PI*2);
+  ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.stroke();
+  if (crossover) {
+    ctx.beginPath();
+    ctx.moveTo(ox-8, oy-10);
+    ctx.quadraticCurveTo(ox+2, oy, ox+8, oy+10);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#ffd32a';
+    ctx.stroke();
+    // sparkle
+    ctx.font = '14px sans-serif';
+    ctx.fillText('✨', ox - 18, oy - 14);
+  }
+}
+
+function drawSingleChromatid(ox, oy, color) {
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = color;
+  ctx.beginPath(); ctx.moveTo(ox, oy-16); ctx.lineTo(ox, oy+16); ctx.stroke();
+}
+
+function drawScene(sc) {
+  const w = window.innerWidth, h = window.innerHeight;
+  drawBackground(w, h, time);
+  drawPinchingCell(w, h, sc);
+  sc.nuc.forEach(n => drawNucleus(w, h, n));
+  drawSpindles(w, h, sc);
+  sc.centro.forEach(c => drawCentrosome(w, h, c));
+  sc.chrom.forEach(ch => drawChromosome(w, h, ch));
+}
+
+/* ================================================================
+   ANIMATION ENGINE
+   ================================================================ */
+function goToStep(newStep, instant = false) {
+  const kf = keyframes();
+  newStep = Math.max(0, Math.min(kf.length - 1, newStep));
+  fromScene = displayScene ? cloneKF(displayScene) : cloneKF(kf[step]);
+  step = newStep;
+  toScene = cloneKF(kf[step]);
+
+  if (instant) {
+    animT = 1;
+    displayScene = cloneKF(toScene);
+    transitioning = false;
+  } else {
+    animT = 0;
+    transitioning = true;
+    transitionStart = performance.now();
+  }
+  updateUI();
+}
+
+function updateDisplayScene(now) {
+  if (transitioning) {
+    animT = Math.min(1, (now - transitionStart) / TRANSITION_MS);
+    displayScene = lerpKF(fromScene, toScene, animT);
+    progressFill.style.width = (animT * 100) + '%';
+    if (animT >= 1) {
+      transitioning = false;
+      displayScene = cloneKF(toScene);
+      progressFill.style.width = '100%';
+      if (playing) holdTimer = now + HOLD_MS;
+    }
+  } else {
+    displayScene = displayScene || cloneKF(keyframes()[step]);
+    progressFill.style.width = playing ? '100%' : '100%';
+  }
+}
+
+function tickPlay(now) {
+  if (!playing || transitioning) return;
+  if (holdTimer > 0 && now >= holdTimer) {
+    holdTimer = 0;
+    if (step < keyframes().length - 1) goToStep(step + 1);
+    else stopPlayback();
+  }
+}
+
+function frame(now) {
+  time = now;
+  updateDisplayScene(now);
+  tickPlay(now);
+  if (displayScene) drawScene(displayScene);
+  requestAnimationFrame(frame);
+}
+
+/* ================================================================
+   UI
+   ================================================================ */
+function updateUI() {
+  const m = meta();
+  const cur = m[step];
+  const kf = keyframes();
+
+  phaseName.textContent = cur.name;
+  phaseSub.textContent = cur.sub;
+  infoPanel.innerHTML = cur.info;
+  stepCounter.textContent = `${step + 1} / ${kf.length}`;
+  btnPrev.disabled = step === 0;
+  btnNext.textContent = step === kf.length - 1 ? 'Done ✓' : 'Next ▶';
+
+  stageBar.innerHTML = '';
+  m.forEach((st, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'stage-dot' + (i === step ? ' active' : i < step ? ' done' : '');
+    dot.title = st.name;
+    dot.addEventListener('click', () => { stopPlayback(); goToStep(i); });
+    stageBar.appendChild(dot);
+  });
+}
+
+function updatePlayButton() {
+  btnPlay.textContent = playing ? '⏸ Pause' : '▶ Play';
+  btnPlay.classList.toggle('playing', playing);
+}
+
+function stopPlayback() {
+  playing = false;
+  holdTimer = 0;
+  updatePlayButton();
+}
+
+function startPlayback() {
+  if (step >= keyframes().length - 1) goToStep(0, false);
+  playing = true;
+  updatePlayButton();
+  if (!transitioning) holdTimer = performance.now() + HOLD_MS;
+}
+
+function togglePlay() {
+  if (playing) stopPlayback();
+  else startPlayback();
+}
+
+function next() {
+  stopPlayback();
+  if (step < keyframes().length - 1) goToStep(step + 1);
+}
+
+function prev() {
+  stopPlayback();
+  if (step > 0) goToStep(step - 1);
+}
+
+function reset() {
+  stopPlayback();
+  goToStep(0, false);
+}
+
+function setMode(m) {
+  stopPlayback();
+  mode = m;
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+  displayScene = null;
+  goToStep(0, true);
+}
+
+/* ================================================================
+   EVENTS
+   ================================================================ */
+btnPlay.addEventListener('click', togglePlay);
+btnNext.addEventListener('click', next);
+btnPrev.addEventListener('click', prev);
+document.getElementById('btn-reset').addEventListener('click', reset);
+document.querySelectorAll('.mode-tab').forEach(t => t.addEventListener('click', () => setMode(t.dataset.mode)));
+
+document.addEventListener('keydown', e => {
+  if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+});
+
+window.addEventListener('resize', resize);
+
+/* Init */
+resize();
+displayScene = cloneKF(keyframes()[0]);
+updateUI();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
